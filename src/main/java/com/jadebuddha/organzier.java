@@ -1,7 +1,10 @@
 package com.jadebuddha;
 
 import com.google.gson.Gson;
+import com.jadebuddha.nfo.Movie;
+import com.jadebuddha.nfo.NFOFile;
 import com.jadebuddha.omdb.Response;
+import com.jadebuddha.omdb.Search;
 import org.apache.commons.io.FilenameUtils;
 
 import javax.xml.bind.JAXBContext;
@@ -58,19 +61,34 @@ public class organzier {
                     logInformation("NFO file does not exist for "+directory.getName()+ " attempting to create one");
                     createNFOFile(directory);
                 }
-                populateNFOFile(directory);
+                populateNFOFile(directory,fetchDataFromOMDB(directory.getName()));
             }
         }
 
-        private static void populateNFOFile(File directory) {
+        private static void populateNFOFile(File directory, Response response) {
             File nfoFile = getNFOFileExist(directory);
-            String  result = fetchDataFromOMDB(directory.getName());
-            String str = "Hello";
-            writeToFile(nfoFile,str);
+
+            String str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>";
+
+            if(response != null && !response.getSearch().isEmpty()) {
+                Search search = response.getSearch().get(0);
+
+                NFOFile nfoFileContent = new NFOFile();
+                nfoFileContent.setMovie(new Movie());
+
+                nfoFileContent.getMovie().setTitle(search.getTitle());
+                str+="\n";
+                str += "<title>"+nfoFileContent.getMovie().getTitle()+"</title>";
+
+                writeToFile(nfoFile,str,false);
+
+            }
+
+
 
         }
 
-        private static String fetchDataFromOMDB(String movieName) {
+        private static Response fetchDataFromOMDB(String movieName) {
 
             String testName = movieName.replaceAll("\\(\\d\\d\\d\\d\\)", "").trim();
             String result = "";
@@ -82,16 +100,17 @@ public class organzier {
                 Response p = g.fromJson(result, Response.class);
 
 
-                if("{\"Response\":\"False\",\"Error\":\"Movie not found!\"}".equals(result)) {
+                if("False".equals(p.getResponse())) {
                     logError(testName+ " NOT FOUND");
                 } else {
                     logInformation(result);
+                    return p;
 
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            return result;
+            return null;
         }
 
         private static boolean doesNFOFileExist(File directory) {
@@ -112,18 +131,10 @@ public class organzier {
             return null;
         }
 
-        private static void  printDirectories(List<File> directories) {
-            logInformation("Directories");
-            logInformation("----------------------------------------------------------------------");
-            for(File directory : directories) {
-                logInformation(directory.getName());
-                createNFOFile(directory);
-            }
-        }
 
         private static void  createNFOFile(File directory) {
             logInformation("Creating media.nfo for "+directory.getName());
-            String nfoFilePath = directory.toPath() + "/media.nfo";
+            String nfoFilePath = directory.toPath() + "/movie.nfo";
             File newFile = new File(nfoFilePath);
             try {
                 newFile.createNewFile();
@@ -163,9 +174,6 @@ public class organzier {
             }
         }
 
-        private static void deleteUneededFiles() {
-
-        }
 
         private static String prepareFileName(String fileName) {
             String newFileName;
@@ -212,7 +220,7 @@ public class organzier {
                 createFile(errorLogFile);
             }
 
-            writeToFile(errorLogFile,info);
+            writeToFile(errorLogFile,info,true);
         }
 
         private static void logInformation(String info) {
@@ -222,7 +230,7 @@ public class organzier {
                 createFile(logFile);
             }
 
-            writeToFile(logFile,info);
+            writeToFile(logFile,info,true);
 
         }
 
@@ -235,12 +243,12 @@ public class organzier {
             }
         }
 
-        private static void writeToFile(File file, String data) {
+        private static void writeToFile(File file, String data, boolean append) {
             try {
                 assert file != null;
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter(file,true))) {
-                    writer.newLine();
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(file,append))) {
                     writer.write(data);
+                    writer.newLine();
                     writer.flush();
                 }
 

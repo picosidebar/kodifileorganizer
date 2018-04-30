@@ -1,1 +1,17 @@
+com\jadebuddha\nfo\Set.class
+com\jadebuddha\nfo\Art.class
+com\jadebuddha\nfo\Fileinfo.class
+com\jadebuddha\nfo\Movie.class
+com\jadebuddha\nfo\Fanart.class
+com\jadebuddha\nfo\Ratings.class
 com\jadebuddha\organzier.class
+com\jadebuddha\nfo\Audio.class
+com\jadebuddha\nfo\Subtitle.class
+com\jadebuddha\nfo\NFOFile.class
+com\jadebuddha\nfo\Thumb.class
+com\jadebuddha\nfo\Uniqueid.class
+com\jadebuddha\nfo\Streamdetails.class
+com\jadebuddha\nfo\Actor.class
+com\jadebuddha\nfo\Video.class
+com\jadebuddha\nfo\Rating.class
+com\jadebuddha\nfo\Resume.class
