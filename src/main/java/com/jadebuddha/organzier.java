@@ -17,10 +17,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,27 +27,50 @@ import org.springframework.web.client.RestTemplate;
 
 public class organzier {
 
-        private static final String[] BAD_EXTENSIONS = {"jpg","txt"};
+        private static final String[] BAD_EXTENSIONS = {"jpg","txt","DS_STORE","nfo","!ut","png"};
         private static final String[] BAD_FILES = {"sample.avi"};
         private static final String OMDBApiKey = "a242616b";
         private static final String OMDBUrl = "http://www.omdbapi.com/";
-        private static final File logFile = new File("x:/test/movie_machine.log");
-        private static final File errorLogFile = new File("x:/test/movie_machine_error.log");
+//    private static final File logFile = new File("x:/test/movie_machine.log");
+//    private static final File errorLogFile = new File("x:/test/movie_machine_error.log");
 
-        private static List<File> directories = new ArrayList<>();
+    private static final File logFile = new File("/Volumes/video/Newvies/movie_machine.log");
+    private static final File errorLogFile = new File("/Volumes/video/Newvies/movie_machine_error.log");
+
+        private static List<File> directoryList = new ArrayList<>();
+    private static List<File> fileList = new ArrayList<>();
+    private static Set<String> nonDeletedExtensions = new HashSet<>();
 
         public static void main(String[] args) {
-            File[] files = new File("x:/test/").listFiles();
+//            File[] files = new File("x:/test/").listFiles();
+            File[] files = new File("/Volumes/video/Newvies/").listFiles();
 
 
             assert files != null;
-            for (File file : files) {
-                if(file.isDirectory()) {
-                    directories.add(file);
+            for (File directory : files) {
+                if(directory.listFiles() != null && directory.listFiles().length > 0) {
+                    purgeFiles(directory.listFiles());
+                    showFiles(directory.listFiles());
+                    if (!doesNFOFileExist(directory)) {
+                        logInformation("NFO file does not exist for " + directory.getName() + " attempting to create one");
+                        createNFOFile(directory);
+                    }
+                    populateNFOFile(directory, fetchDataFromOMDB(directory.getName()));
+
                 }
+
+
             }
-            processDirectories(directories);
+//            showFiles(files);
+//            purgeFiles(files);
+//            processDirectories(directoryList);
 //        showFiles(files);
+
+            for(String ext : nonDeletedExtensions) {
+                logInformation(ext);
+            }
+
+            logInformation("PROGRAM FINISHED");
         }
 
         private static void processDirectories(List<File> directories) {
@@ -59,6 +79,7 @@ public class organzier {
             logInformation("----------------------------------------------------------------------");
             for(File directory : directories) {
                 logInformation(directory.getName());
+
                 if(!doesNFOFileExist(directory)) {
                     logInformation("NFO file does not exist for "+directory.getName()+ " attempting to create one");
                     createNFOFile(directory);
@@ -85,24 +106,24 @@ public class organzier {
 
 
                     nfoFileContent.setMovie(new Movie());
-                    nfoFileContent.getMovie().setTitle(responseFromIMDBId.getTitle());
-                    List<Actor> actorList = new ArrayList<>();
+                    if(responseFromIMDBId != null) {
+                        nfoFileContent.getMovie().setTitle(responseFromIMDBId.getTitle());
+                        List<Actor> actorList = new ArrayList<>();
 
-                    for(String actor : responseFromIMDBId.getActors().split(",")) {
-                        Actor a = new Actor();
-                        a.setName(actor);
-                        actorList.add(a);
+                        for (String actor : responseFromIMDBId.getActors().split(",")) {
+                            Actor a = new Actor();
+                            a.setName(actor);
+                            actorList.add(a);
+                        }
+
+
+                        nfoFileContent.getMovie().setActor(actorList.toArray(new Actor[actorList.size()]));
+                        nfoFileContent.getMovie().setOutline(responseFromIMDBId.getPlot());
+                        nfoFileContent.getMovie().setYear(responseFromIMDBId.getYear());
+                        nfoFileContent.getMovie().setPremiered(responseFromIMDBId.getYear());
+                        nfoFileContent.getMovie().setMpaa(responseFromIMDBId.getRated());
+                        nfoFileContent.getMovie().setRuntime(responseFromIMDBId.getRuntime().replaceAll("[\\D]", ""));
                     }
-
-
-
-                    nfoFileContent.getMovie().setActor(actorList.toArray(new Actor[actorList.size()]));
-                    nfoFileContent.getMovie().setOutline(responseFromIMDBId.getPlot());
-                    nfoFileContent.getMovie().setYear(responseFromIMDBId.getYear());
-                    nfoFileContent.getMovie().setPremiered(responseFromIMDBId.getYear());
-                    nfoFileContent.getMovie().setMpaa(responseFromIMDBId.getRated());
-                    nfoFileContent.getMovie().setRuntime(responseFromIMDBId.getRuntime().replaceAll("[\\D]", ""));
-
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -188,35 +209,57 @@ public class organzier {
 
         }
 
-        public static void showFiles(File[] files) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    logInformation("Directory: " + file.toPath());
-                    if(".thumb".equals(file.getName())) {
-                        logInformation("Deleting directory: "+file.getName());
-                        file.delete();
-                    } else {
-                        showFiles(file.listFiles()); // Calls same method again.
+    public static void showFiles(File[] files) {
+        for (File file : files) {
+            if (file.isDirectory()) {
+                logInformation("Directory: " + file.toPath());
+                   showFiles(file.listFiles()); // Calls same method again.
+
+            } else {
+
+                    try {
+                        logInformation(fetchContentByDirectoryName(file.getName()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+            }
+        }
+    }
+
+    public static void purgeFiles(File[] files) {
+        for (File file : files) {
+            if (file.isDirectory()) {
+                logInformation("Directory: " + file.toPath());
+                if(".thumb".equals(file.getName())) {
+
+                    logInformation("Deleting directory: "+file.getName());
+                    purgeFiles(file.listFiles());
+                    file.delete();
+                }
+
+            } else {
+                String extension = FilenameUtils.getExtension(file.getName());
+
+                if(stringContainsItemFromList(extension, BAD_EXTENSIONS) || stringContainsItemFromList(file.getName(), BAD_FILES)) {
+                    logInformation("Deleting file: "+file.getName());
+                    try {
+                        Files.delete(file.toPath());
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 } else {
-                    String extension = FilenameUtils.getExtension(file.getName());
-                    if(stringContainsItemFromList(extension, BAD_EXTENSIONS) || stringContainsItemFromList(file.getName(), BAD_FILES)) {
-                        logInformation("Deleting file: "+file.getName());
-                        try {
-                            Files.delete(file.toPath());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    } else {
-                        try {
-                            logInformation(fetchContentByDirectoryName(file.getName()));
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                    try {
+                        nonDeletedExtensions.add(extension);
+                        logInformation("EXTENSION: "+extension);
+                        logInformation(fetchContentByDirectoryName(file.getName()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
             }
         }
+    }
 
 
         private static String prepareFileName(String fileName) {
@@ -326,6 +369,9 @@ public class organzier {
         }
 
         private static void writeToFile(File file, String data, boolean append) {
+            if(data == null) {
+                data = "data came in null";
+            }
             try {
                 assert file != null;
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(file,append))) {
