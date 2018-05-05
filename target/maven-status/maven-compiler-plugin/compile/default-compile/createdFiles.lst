@@ -11,7 +11,9 @@ com\jadebuddha\nfo\NFOFile.class
 com\jadebuddha\nfo\Thumb.class
 com\jadebuddha\nfo\Uniqueid.class
 com\jadebuddha\nfo\Streamdetails.class
+com\jadebuddha\omdb\imdbid\Ratings.class
 com\jadebuddha\nfo\Actor.class
 com\jadebuddha\nfo\Video.class
+com\jadebuddha\omdb\imdbid\ResponseFromIMDBId.class
 com\jadebuddha\nfo\Rating.class
 com\jadebuddha\nfo\Resume.class

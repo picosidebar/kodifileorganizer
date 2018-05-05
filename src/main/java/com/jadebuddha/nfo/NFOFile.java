@@ -1,5 +1,8 @@
 package com.jadebuddha.nfo;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement
 public class NFOFile {
         private Movie movie;
 

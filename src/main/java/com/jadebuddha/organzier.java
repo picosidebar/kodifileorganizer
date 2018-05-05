@@ -1,10 +1,12 @@
 package com.jadebuddha;
 
 import com.google.gson.Gson;
+import com.jadebuddha.nfo.Actor;
 import com.jadebuddha.nfo.Movie;
 import com.jadebuddha.nfo.NFOFile;
 import com.jadebuddha.omdb.Response;
 import com.jadebuddha.omdb.Search;
+import com.jadebuddha.omdb.imdbid.ResponseFromIMDBId;
 import org.apache.commons.io.FilenameUtils;
 
 import javax.xml.bind.JAXBContext;
@@ -68,17 +70,59 @@ public class organzier {
         private static void populateNFOFile(File directory, Response response) {
             File nfoFile = getNFOFileExist(directory);
 
-            String str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>";
+            String str = ""; // "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>";
 
             if(response != null && !response.getSearch().isEmpty()) {
+
                 Search search = response.getSearch().get(0);
 
                 NFOFile nfoFileContent = new NFOFile();
                 nfoFileContent.setMovie(new Movie());
-
                 nfoFileContent.getMovie().setTitle(search.getTitle());
-                str+="\n";
-                str += "<title>"+nfoFileContent.getMovie().getTitle()+"</title>";
+
+                try {
+                    ResponseFromIMDBId responseFromIMDBId = fetchContentByIMDBId(response.getSearch().get(0).getImdbID());
+
+
+                    nfoFileContent.setMovie(new Movie());
+                    nfoFileContent.getMovie().setTitle(responseFromIMDBId.getTitle());
+                    List<Actor> actorList = new ArrayList<>();
+
+                    for(String actor : responseFromIMDBId.getActors().split(",")) {
+                        Actor a = new Actor();
+                        a.setName(actor);
+                        actorList.add(a);
+                    }
+
+
+
+                    nfoFileContent.getMovie().setActor(actorList.toArray(new Actor[actorList.size()]));
+                    nfoFileContent.getMovie().setOutline(responseFromIMDBId.getPlot());
+                    nfoFileContent.getMovie().setYear(responseFromIMDBId.getYear());
+                    nfoFileContent.getMovie().setPremiered(responseFromIMDBId.getYear());
+                    nfoFileContent.getMovie().setMpaa(responseFromIMDBId.getRated());
+                    nfoFileContent.getMovie().setRuntime(responseFromIMDBId.getRuntime().replaceAll("[\\D]", ""));
+
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+
+//                str += "<title>"+nfoFileContent.getMovie().getTitle()+"</title>";
+                JAXBContext jaxbContext = null;
+                try {
+                    jaxbContext = JAXBContext.newInstance(NFOFile.class);
+
+                Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+                    jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+                StringWriter sw = new StringWriter();
+                jaxbMarshaller.marshal(nfoFileContent,sw);
+                    str += sw.toString();
+
+                } catch (JAXBException e) {
+                    e.printStackTrace();
+                }
 
                 writeToFile(nfoFile,str,false);
 
@@ -186,33 +230,71 @@ public class organzier {
             return Arrays.stream(badStrings).parallel().anyMatch(inputStr::contains);
         }
 
-        private static String fetchContentByDirectoryName(String directoryName) throws IOException {
+    private static String fetchContentByDirectoryName(String directoryName) throws IOException {
 
-            String uri = OMDBUrl + "?apikey=" + OMDBApiKey + "&s=";
-            uri += directoryName;
-            logInformation("uri: "+uri);
+        String uri = OMDBUrl + "?apikey=" + OMDBApiKey + "&s=";
+        uri += directoryName;
+        logInformation("uri: "+uri);
 
-            final int OK = 200;
-            URL url = new URL(uri);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        final int OK = 200;
+        URL url = new URL(uri);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-            int responseCode = connection.getResponseCode();
-            if(responseCode == OK){
-                BufferedReader in = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream()));
-                String inputLine;
-                StringBuffer response = new StringBuffer();
+        int responseCode = connection.getResponseCode();
+        if(responseCode == OK){
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream()));
+            String inputLine;
+            StringBuffer response = new StringBuffer();
 
-                while ((inputLine = in.readLine()) != null) {
-                    response.append(inputLine);
-                }
-                in.close();
-
-                return response.toString();
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
             }
+            in.close();
 
-            return null;
+            return response.toString();
         }
+
+        return null;
+    }
+
+    private static ResponseFromIMDBId fetchContentByIMDBId(String id) throws IOException {
+
+        String uri = OMDBUrl + "?apikey=" + OMDBApiKey + "&i=";
+        uri += id;
+        logInformation("uri: "+uri);
+
+        final int OK = 200;
+        URL url = new URL(uri);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        int responseCode = connection.getResponseCode();
+        if(responseCode == OK){
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream()));
+            String inputLine;
+            StringBuffer response = new StringBuffer();
+
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+
+            Gson g = new Gson();
+            ResponseFromIMDBId p = g.fromJson(response.toString(), ResponseFromIMDBId.class);
+
+
+            if("False".equals(p.getResponse())) {
+                logError(id+ " NOT FOUND");
+            } else {
+                logInformation(response.toString());
+                return p;
+
+            }
+        }
+
+        return null;
+    }
 
         private static void logError(String info) {
             System.out.println(info);
